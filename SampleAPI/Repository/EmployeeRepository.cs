@@ -36,49 +36,40 @@ namespace SampleAPI.Repository
         /// <param name="employeeId">Employee model.</param>
         public async Task DeleteAsync(int employeeId)
         {
-            if (_dbContext != null)
+            var employee = await _dbContext.Employees.FindAsync(employeeId);
+
+            if (employee == null)
             {
-                var employee = await _dbContext.Employees.FindAsync(employeeId);
-
-                if (employee == null)
-                {
-                    throw new Exception(AppConstants.NoSuchRecordFoundErrorMessage);
-                }
-
-                if (employee != null)
-                {
-                    _dbContext.Employees.Remove(employee);
-                    await _dbContext.SaveChangesAsync();
-                }
+                throw new CustomException(AppConstants.NoRecordErrorMessage);
             }
-        }
 
-        /// <summary>
-        /// Filter employee by Role and IsActive.
-        /// </summary>
-        /// <param name="role">Employee role</param>
-        /// <param name="isActive">Employee status.</param>
-        public async Task<IEnumerable<EmployeeModel>> FilterAsync(string role, bool isActive)
-        {
-            if (_dbContext != null && _dbContext.Employees.Any())
-            {
-                return await _dbContext.Employees.Where(x => x.Role.Contains(role) && x.IsActive.Equals(isActive)).ToListAsync();
-            }
-            return null;
+            _dbContext.Employees.Remove(employee);
+            await _dbContext.SaveChangesAsync();
         }
 
         /// <summary>
         /// Get the employee list.
         /// </summary>
         /// <returns>Employee list.</returns>
-        public async Task<IEnumerable<EmployeeModel>> GetAllAsync()
+        public async Task<IEnumerable<EmployeeModel>> GetAllAsync(string searchText, string role, bool includeInActive)
         {
-            if (_dbContext != null && _dbContext.Employees.Any())
+             var employeeList = await _dbContext.Employees.ToListAsync();
+            if (!string.IsNullOrWhiteSpace(searchText))
             {
-                return await _dbContext.Employees.ToListAsync();
+                employeeList = employeeList.Where(x => x.Name.Contains(searchText) || x.Role.Contains(searchText)).ToList();
             }
 
-            return null;
+            if (!string.IsNullOrWhiteSpace(role))
+            {
+                employeeList = employeeList.Where(x => x.Role.Equals(role)).ToList();
+            }
+
+            if (!includeInActive)
+            {
+                employeeList = employeeList.Where(x => x.IsActive).ToList();
+            }
+
+            return employeeList;
         }
 
         /// <summary>
@@ -88,27 +79,7 @@ namespace SampleAPI.Repository
         /// <returns>Employee model</returns>
         public async Task<EmployeeModel> GetAsync(int id)
         {
-            if (_dbContext.Employees != null && _dbContext.Employees.Any())
-            {
-                return await _dbContext.Employees.FindAsync(id);
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Search employee from database using search keyword.
-        /// </summary>
-        /// <param name="searchText">Search text.</param>
-        /// <returns>Employee list.</returns>
-        public async Task<IEnumerable<EmployeeModel>> SearchAsync(string searchText)
-        {
-            if (_dbContext != null && _dbContext.Employees.Any())
-            {
-                return await _dbContext.Employees.Where(x => x.Name.Contains(searchText) || x.Role.Contains(searchText)).ToListAsync();
-            }
-
-            return null;
+            return await _dbContext.Employees.FindAsync(id);
         }
 
         /// <summary>

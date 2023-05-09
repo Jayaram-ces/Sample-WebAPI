@@ -8,7 +8,7 @@ namespace SampleAPI.Controllers
     /// <summary>
     /// EmployeeModel controller is used to perform CRUD operations with employee entity.
     /// </summary>
-    [Route("api/[controller]")]
+    [Route("sampleAPI/[controller]")]
     [ApiController]
     public class EmployeeController : ControllerBase
     {
@@ -26,18 +26,37 @@ namespace SampleAPI.Controllers
         /// <returns>Returns the employee list.</returns>
         [HttpGet]
         [Route("GetAllEmployee")]
-        public async Task<IActionResult> GetAllEmployee()
+        public async Task<IActionResult> GetEmployee(string? search, string? filterByRole, bool includeInActive, [FromQuery] PagingParameterModel pagingparametermodel)
         {
             try
             {
-                var result = await _repository.GetAllAsync();
-                return Ok(result);
+                var response = new GetResponseModel<EmployeeModel>();
+                var result = await _repository.GetAllAsync(search, filterByRole, includeInActive);
+
+                int TotalPages = 0;
+                int totalRecordCount = result.Count();
+                int CurrentPage = pagingparametermodel.PageNumber;
+                int PageSize = pagingparametermodel.PageSize;
+
+                if (PageSize > 0)
+                {
+                    TotalPages = (int)Math.Ceiling(totalRecordCount / (double)PageSize);
+                    result = result.Skip((CurrentPage - 1) * PageSize).Take(PageSize).ToList();
+                }
+
+                response.TotalRecordCount = totalRecordCount;
+                response.TotalPages = TotalPages;
+                response.PageSize = PageSize;
+                response.CurrentPage = CurrentPage;
+                response.HasPreviousPage = CurrentPage > 1;
+                response.HasNextPage = CurrentPage < TotalPages;
+                response.Data = result;
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.LogInformation(AppConstants.NoRecordFoundErrorMessage);
-                _logger.LogCritical(ex, ex.Message);
-                return StatusCode(StatusCodes.Status500InternalServerError, AppConstants.NoRecordFoundErrorMessage);
+                _logger.LogInformation(ex, ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, AppConstants.CommonErrorMessage);
             }
         }
 
@@ -47,7 +66,7 @@ namespace SampleAPI.Controllers
         /// <param name="employeeId">Unique identifier of the employee.</param>
         /// <returns>Returns employee model.</returns>
         [HttpGet]
-        [Route("GetEmployeeById")]
+        [Route("{employeeId}")]
         public async Task<IActionResult> GetEmployeeById(int employeeId)
         {
             try
@@ -56,16 +75,15 @@ namespace SampleAPI.Controllers
 
                 if (employee == null)
                 {
-                    return NotFound(AppConstants.NoSuchRecordFoundErrorMessage);
+                    return NotFound(AppConstants.NoRecordErrorMessage);
                 }
 
                 return Ok(employee);
             }
             catch (Exception ex)
             {
-                _logger.LogInformation(AppConstants.NoSuchRecordFoundErrorMessage);
-                _logger.LogCritical(ex, ex.Message);
-                return StatusCode(StatusCodes.Status500InternalServerError, AppConstants.NoSuchRecordFoundErrorMessage);
+                _logger.LogInformation(ex, ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, AppConstants.CommonErrorMessage);
             }
         }
 
@@ -75,25 +93,18 @@ namespace SampleAPI.Controllers
         /// <param name="employee">EmployeeModel model.</param>
         /// <returns>Create status.</returns>
         [HttpPost]
-        [ProducesResponseType(typeof(SerializableError), StatusCodes.Status400BadRequest)]
         [Route("AddEmployee")]
         public async Task<IActionResult> AddEmployee([FromBody] EmployeeModel employee)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             try
             {
                 await _repository.AddAsync(employee);
-                return Ok(AppConstants.AddSuccessMessage);
+                return Ok(new UpdateResponseModel { Status = true, StatusMessage = AppConstants.AddSuccessMessage });
             }
             catch (Exception ex)
             {
-                _logger.LogInformation(AppConstants.AddFailedErrorMessage);
-                _logger.LogCritical(ex, ex.Message);
-                return StatusCode(StatusCodes.Status500InternalServerError, ex.Message);
+                _logger.LogInformation(ex, ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, AppConstants.CommonErrorMessage);
             }
         }
 
@@ -109,19 +120,13 @@ namespace SampleAPI.Controllers
         {
             try
             {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
                 await _repository.UpdateAsync(employeeModel);
-                return Ok(AppConstants.UpdateSuccessMessage);
+                return Ok(new UpdateResponseModel { Status = true, StatusMessage = AppConstants.UpdateSuccessMessage });
             }
             catch (Exception ex)
             {
-                _logger.LogInformation(AppConstants.NoRecordFoundErrorMessage);
-                _logger.LogCritical(ex, ex.Message);
-                return StatusCode(StatusCodes.Status500InternalServerError, AppConstants.NoRecordFoundErrorMessage);
+                _logger.LogInformation(ex, ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, AppConstants.CommonErrorMessage);
             }
         }
 
@@ -131,79 +136,23 @@ namespace SampleAPI.Controllers
         /// <param name="employeeId">Unique identifier of the employee.</param>
         /// <returns>Delete status</returns>
         [HttpDelete]
-        [Route("DeleteEmployee")]
+        [Route("{employeeId}")]
         public async Task<IActionResult> DeleteEmployee(int employeeId)
         {
             try
             {
                 await _repository.DeleteAsync(employeeId);
-                return Ok(AppConstants.DeleteSuccessMessage);
+                return Ok(new UpdateResponseModel { Status = true, StatusMessage = AppConstants.DeleteSuccessMessage });
             }
-            catch (Exception ex)
+            catch (CustomException ex)
             {
-                _logger.LogInformation(AppConstants.NoSuchRecordFoundErrorMessage);
-                _logger.LogCritical(ex, ex.Message);
-                return StatusCode(StatusCodes.Status500InternalServerError, AppConstants.NoSuchRecordFoundErrorMessage);
+                _logger.LogInformation(ex, ex.Message);
+                return StatusCode(StatusCodes.Status204NoContent);
             }
-        }
-
-        /// <summary>
-        /// Search employee by name/ Role.
-        /// </summary>
-        /// <param name="searchText">Search text</param>
-        /// <returns>EmployeeModel list related to search text.</returns>
-        [HttpGet]
-        [Route("Search")]
-        public async Task<IActionResult> Search(string searchText)
-        {
-            try
+            catch(Exception ex)
             {
-                var result = await _repository.SearchAsync(searchText);
-                if (result != null && result is IEnumerable<EmployeeModel> employeeList && employeeList.Any())
-                {
-                    return Ok(result);
-                }
-                else
-                {
-                    return Ok(AppConstants.NoSuchRecordFoundWithSearchTextErrorMessage);
-
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(AppConstants.NoSuchRecordFoundWithSearchTextErrorMessage);
-                _logger.LogCritical(ex, ex.Message);
-                return StatusCode(StatusCodes.Status500InternalServerError, AppConstants.NoSuchRecordFoundWithSearchTextErrorMessage);
-            }
-        }
-
-        /// <summary>
-        /// Filter employee by Role and IsActive
-        /// </summary>
-        /// <param name="role">EmployeeModel role.</param>
-        /// <param name="isActive">EmployeeModel is Active or not.</param>
-        /// <returns>Filter employee based on selected filter.</returns>
-        [HttpGet]
-        [Route("Filter")]
-        public async Task<IActionResult> Filter(string role, bool isActive)
-        {
-            try
-            {
-                var result = await _repository.FilterAsync(role, isActive);
-                if (result != null && result is IEnumerable<EmployeeModel> employeeList && employeeList.Any())
-                {
-                    return Ok(result);
-                }
-                else
-                {
-                    return Ok(AppConstants.NoRecordFoundErrorMessage);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(AppConstants.NoRecordFoundErrorMessage);
-                _logger.LogCritical(ex, ex.Message);
-                return StatusCode(StatusCodes.Status500InternalServerError, AppConstants.NoRecordFoundErrorMessage);
+                _logger.LogInformation(ex, ex.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, AppConstants.CommonErrorMessage);
             }
         }
     }

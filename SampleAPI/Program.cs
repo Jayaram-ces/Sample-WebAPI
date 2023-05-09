@@ -4,6 +4,7 @@ using SampleAPI.Contexts;
 using SampleAPI.Repository;
 namespace SampleAPI
 {
+    [ExcludeFromCodeCoverage]
     public class Program
     {
         public static void Main(string[] args)
