@@ -75,7 +75,7 @@ namespace SampleAPI.Controllers
 
                 if (employee == null)
                 {
-                    return NotFound(AppConstants.NoRecordErrorMessage);
+                    return NoContent();
                 }
 
                 return Ok(employee);
