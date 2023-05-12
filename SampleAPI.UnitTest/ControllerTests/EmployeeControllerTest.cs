@@ -40,17 +40,17 @@ namespace SampleAPI.UnitTest.ControllerTests
             //Arrange
             var search = _fixture.Create<string>();
             var role = _fixture.Create<string>();
-            var pagingModel = _fixture.Create<PagingParameterModel>();
-            _employeeRepositoryMock.Setup(x => x.GetAllAsync(search, role, false)).ThrowsAsync(_fixture.Create<Exception>());
+            var getEmployeeParameters = _fixture.Create<GetEmployeeParameters>();
+            _employeeRepositoryMock.Setup(x => x.GetAllAsync(getEmployeeParameters)).ThrowsAsync(_fixture.Create<Exception>());
             var controller = CreateController();
 
             //Act
-            var actual = await controller.GetEmployee(search, role, false, pagingModel) as ObjectResult;
+            var actual = await controller.GetEmployee(getEmployeeParameters) as ObjectResult;
 
             //Assert
             Assert.NotNull(actual);
             Assert.Equal(StatusCodes.Status500InternalServerError, actual.StatusCode);
-            _employeeRepositoryMock.Verify(m => m.GetAllAsync(search, role, false), Times.Once);
+            _employeeRepositoryMock.Verify(m => m.GetAllAsync(getEmployeeParameters), Times.Once);
             _employeeRepositoryMock.VerifyNoOtherCalls();
         }
 
@@ -60,19 +60,19 @@ namespace SampleAPI.UnitTest.ControllerTests
             //Arrange
             var search = _fixture.Create<string>();
             var role = _fixture.Create<string>();
-            var pagingModel = _fixture.Build<PagingParameterModel>().With(x=>x.PageSize, 0).Create();
-            var expected = _fixture.Create<IReadOnlyList<EmployeeModel>>();
-            _employeeRepositoryMock.Setup(x => x.GetAllAsync(search, role, false)).ReturnsAsync(expected);
+            var getEmployeeParameters = _fixture.Build<GetEmployeeParameters>().With(x=>x.PageSize, 0).Create();
+            var expected = _fixture.Create<IEnumerable<EmployeeModel>>().AsQueryable();
+            _employeeRepositoryMock.Setup(x => x.GetAllAsync(getEmployeeParameters)).ReturnsAsync(expected);
             var controller = CreateController();
 
             //Act
-            var actual = await controller.GetEmployee(search, role, false, pagingModel) as ObjectResult;
+            var actual = await controller.GetEmployee(getEmployeeParameters) as ObjectResult;
 
             //Assert
             Assert.NotNull(actual);
             Assert.Equal(StatusCodes.Status200OK, actual.StatusCode);
             Assert.Equal(expected, (actual.Value as GetResponseModel<EmployeeModel>).Data);
-            _employeeRepositoryMock.Verify(m => m.GetAllAsync(search, role, false), Times.Once);
+            _employeeRepositoryMock.Verify(m => m.GetAllAsync(getEmployeeParameters), Times.Once);
             _employeeRepositoryMock.VerifyNoOtherCalls();
         }
 
@@ -82,20 +82,20 @@ namespace SampleAPI.UnitTest.ControllerTests
             //Arrange
             var search = _fixture.Create<string>();
             var role = _fixture.Create<string>();
-            var pagingModel = _fixture.Build<PagingParameterModel>().With(x => x.PageSize, 20).With(x=>x.PageNumber, 5).Create();
-            var emoployeeList = _fixture.CreateMany<EmployeeModel>(100);
-            var expected = emoployeeList.Skip((pagingModel.PageNumber - 1) * pagingModel.PageSize).Take(pagingModel.PageSize).ToList();
-            _employeeRepositoryMock.Setup(x => x.GetAllAsync(search, role, false)).ReturnsAsync(emoployeeList);
+            var getEmployeeParameters = _fixture.Build<GetEmployeeParameters>().With(x => x.PageSize, 20).With(x=>x.PageNumber, 5).Create();
+            var emoployeeList = _fixture.CreateMany<EmployeeModel>(100).AsQueryable();
+            var expected = emoployeeList.OrderBy(x => x.Name).Skip((getEmployeeParameters.PageNumber - 1) * getEmployeeParameters.PageSize).Take(getEmployeeParameters.PageSize).ToList();
+            _employeeRepositoryMock.Setup(x => x.GetAllAsync(getEmployeeParameters)).ReturnsAsync(emoployeeList);
             var controller = CreateController();
 
             //Act
-            var actual = await controller.GetEmployee(search, role, false, pagingModel) as ObjectResult;
+            var actual = await controller.GetEmployee(getEmployeeParameters) as ObjectResult;
 
             //Assert
             Assert.NotNull(actual);
             Assert.Equal(StatusCodes.Status200OK, actual.StatusCode);
             Assert.Equal(expected, (actual.Value as GetResponseModel<EmployeeModel>).Data);
-            _employeeRepositoryMock.Verify(m => m.GetAllAsync(search, role, false), Times.Once);
+            _employeeRepositoryMock.Verify(m => m.GetAllAsync(getEmployeeParameters), Times.Once);
             _employeeRepositoryMock.VerifyNoOtherCalls();
         }
 
@@ -138,18 +138,18 @@ namespace SampleAPI.UnitTest.ControllerTests
         }
 
         [Fact]
-        public async Task ShouldReturn_204_NoContent_When_EmployeeRepositoryReturnNull_WhileGetEmployeeById_IsCalled()
+        public async Task ShouldReturn_404_NotFound_When_EmployeeRepositoryReturnNull_WhileGetEmployeeById_IsCalled()
         {
             //Arrange
             var request = _fixture.Create<int>();
             _employeeRepositoryMock.Setup(x => x.GetAsync(request)).ReturnsAsync((EmployeeModel)null);
 
             //Act
-            var actual = await CreateController().GetEmployeeById(request) as NoContentResult;
+            var actual = await CreateController().GetEmployeeById(request) as NotFoundResult;
 
             //Assert
             Assert.NotNull(actual);
-            Assert.Equal(StatusCodes.Status204NoContent, actual.StatusCode);
+            Assert.Equal(StatusCodes.Status404NotFound, actual.StatusCode);
             _employeeRepositoryMock.Verify(m => m.GetAsync(request), Times.Once);
             _employeeRepositoryMock.VerifyNoOtherCalls();
         }

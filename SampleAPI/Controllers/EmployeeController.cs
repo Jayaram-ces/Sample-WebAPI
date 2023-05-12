@@ -26,22 +26,27 @@ namespace SampleAPI.Controllers
         /// <returns>Returns the employee list.</returns>
         [HttpGet]
         [Route("GetAllEmployee")]
-        public async Task<IActionResult> GetEmployee(string? search, string? filterByRole, bool includeInActive, [FromQuery] PagingParameterModel pagingparametermodel)
+        public async Task<IActionResult> GetEmployee([FromQuery] GetEmployeeParameters pagingparametermodel)
         {
             try
             {
                 var response = new GetResponseModel<EmployeeModel>();
-                var result = await _repository.GetAllAsync(search, filterByRole, includeInActive);
+                IEnumerable<EmployeeModel> result = new List<EmployeeModel>();
+                var getEmployees = (await _repository.GetAllAsync(pagingparametermodel)).ToList();
 
-                int TotalPages = 0;
-                int totalRecordCount = result.Count();
+                int TotalPages = 1;
+                int totalRecordCount = getEmployees.Count;
                 int CurrentPage = pagingparametermodel.PageNumber;
                 int PageSize = pagingparametermodel.PageSize;
 
                 if (PageSize > 0)
                 {
                     TotalPages = (int)Math.Ceiling(totalRecordCount / (double)PageSize);
-                    result = result.Skip((CurrentPage - 1) * PageSize).Take(PageSize).ToList();
+                    result = getEmployees.OrderBy(x => x.Name).Skip((CurrentPage - 1) * PageSize).Take(PageSize);
+                }
+                else
+                {
+                    result = getEmployees;
                 }
 
                 response.TotalRecordCount = totalRecordCount;
@@ -66,7 +71,6 @@ namespace SampleAPI.Controllers
         /// <param name="employeeId">Unique identifier of the employee.</param>
         /// <returns>Returns employee model.</returns>
         [HttpGet]
-        [Route("{employeeId}")]
         public async Task<IActionResult> GetEmployeeById(int employeeId)
         {
             try
@@ -75,7 +79,7 @@ namespace SampleAPI.Controllers
 
                 if (employee == null)
                 {
-                    return NoContent();
+                    return NotFound();
                 }
 
                 return Ok(employee);
@@ -93,7 +97,6 @@ namespace SampleAPI.Controllers
         /// <param name="employee">EmployeeModel model.</param>
         /// <returns>Create status.</returns>
         [HttpPost]
-        [Route("AddEmployee")]
         public async Task<IActionResult> AddEmployee([FromBody] EmployeeModel employee)
         {
             try
@@ -115,7 +118,6 @@ namespace SampleAPI.Controllers
         /// <param name="employee">EmployeeModel model.</param>
         /// <returns>Update status.</returns>
         [HttpPut]
-        [Route("UpdateEmployee")]
         public async Task<IActionResult> UpdateEmployee(EmployeeModel employeeModel)
         {
             try
@@ -136,7 +138,6 @@ namespace SampleAPI.Controllers
         /// <param name="employeeId">Unique identifier of the employee.</param>
         /// <returns>Delete status</returns>
         [HttpDelete]
-        [Route("{employeeId}")]
         public async Task<IActionResult> DeleteEmployee(int employeeId)
         {
             try
@@ -149,7 +150,7 @@ namespace SampleAPI.Controllers
                 _logger.LogInformation(ex, ex.Message);
                 return StatusCode(StatusCodes.Status204NoContent);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogInformation(ex, ex.Message);
                 return StatusCode(StatusCodes.Status500InternalServerError, AppConstants.CommonErrorMessage);

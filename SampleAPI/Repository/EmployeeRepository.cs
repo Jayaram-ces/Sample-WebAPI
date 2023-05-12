@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Data;
+using Microsoft.EntityFrameworkCore;
 using SampleAPI.Constant;
 using SampleAPI.Contexts;
 using SampleAPI.Models;
@@ -51,23 +52,12 @@ namespace SampleAPI.Repository
         /// Get the employee list.
         /// </summary>
         /// <returns>Employee list.</returns>
-        public async Task<IEnumerable<EmployeeModel>> GetAllAsync(string searchText, string role, bool includeInActive)
+        public async Task<IQueryable<EmployeeModel>> GetAllAsync(GetEmployeeParameters getEmployeeParameters)
         {
-             var employeeList = await _dbContext.Employees.ToListAsync();
-            if (!string.IsNullOrWhiteSpace(searchText))
-            {
-                employeeList = employeeList.Where(x => x.Name.Contains(searchText) || x.Role.Contains(searchText)).ToList();
-            }
-
-            if (!string.IsNullOrWhiteSpace(role))
-            {
-                employeeList = employeeList.Where(x => x.Role.Equals(role)).ToList();
-            }
-
-            if (!includeInActive)
-            {
-                employeeList = employeeList.Where(x => x.IsActive).ToList();
-            }
+            var employeeList = _dbContext.Employees.Where(x =>
+                (string.IsNullOrWhiteSpace(getEmployeeParameters.Search) || x.Name.Contains(getEmployeeParameters.Search) || x.Role.Contains(getEmployeeParameters.Search))
+                && (string.IsNullOrWhiteSpace(getEmployeeParameters.FilterByRole) || x.Role.Equals(getEmployeeParameters.FilterByRole))
+                && (getEmployeeParameters.IncludeInActive || x.IsActive));
 
             return employeeList;
         }

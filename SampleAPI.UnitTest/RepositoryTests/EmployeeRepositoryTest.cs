@@ -30,11 +30,12 @@ namespace SampleAPI.UnitTest.RepositoryTests
         {
             //Arrange
             var expected = _fixture.Build<EmployeeModel>().CreateMany().ToList();
+            var getEmployee = _fixture.Build<GetEmployeeParameters>().Without(x=>x.Search).Without(x => x.FilterByRole).With(x => x.IncludeInActive, false).Create();
             await _dbContext.AddRangeAsync(expected);
             await _dbContext.SaveChangesAsync();
 
             //Act
-            var actual = await _employeeRepository.GetAllAsync(null, null, false);
+            var actual = await _employeeRepository.GetAllAsync(getEmployee);
 
             //Assert
             Assert.NotNull(actual);
@@ -47,13 +48,14 @@ namespace SampleAPI.UnitTest.RepositoryTests
             //Arrange
             var expected = _fixture.Build<EmployeeModel>().CreateMany().ToList();
             await _dbContext.AddRangeAsync(expected);
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync();      
             var searchEmployee = expected.FirstOrDefault();
             var expectedList = _fixture.CreateMany<EmployeeModel>(0).ToList();
             expectedList.Add(searchEmployee);
+            var getEmployee = _fixture.Build<GetEmployeeParameters>().With(x => x.Search, searchEmployee.Name).Without(x => x.FilterByRole).Create();
 
             //Act
-            var actual = await _employeeRepository.GetAllAsync(searchEmployee.Name, null, false);
+            var actual = await _employeeRepository.GetAllAsync(getEmployee);
 
             //Assert
             Assert.NotNull(actual);
@@ -66,11 +68,12 @@ namespace SampleAPI.UnitTest.RepositoryTests
             //Arrange
             string role = "Software Developer";
             var expected = _fixture.Build<EmployeeModel>().With(x=>x.Role, role).CreateMany().ToList();
+            var getEmployee = _fixture.Build<GetEmployeeParameters>().With(x => x.FilterByRole, role).Without(x => x.Search).Create();
             await _dbContext.AddRangeAsync(expected);
             await _dbContext.SaveChangesAsync();
 
             //Act
-            var actual = await _employeeRepository.GetAllAsync(null, role, false);
+            var actual = await _employeeRepository.GetAllAsync(getEmployee);
 
             //Assert
             Assert.NotNull(actual);
