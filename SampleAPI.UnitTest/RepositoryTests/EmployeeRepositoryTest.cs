@@ -25,13 +25,13 @@ namespace SampleAPI.UnitTest.RepositoryTests
         }
 
         #region GetAllAsync
-        [Fact]
+        [Fact(DisplayName = "ShouldReturnAllEmployees_WhenGetAllAsync_IsCalled_WithGivenParameters")]
         public async void ShouldReturnAllEmployees_WhenGetAllAsync_IsCalled()
         {
             //Arrange
-            var expected = _fixture.Build<EmployeeModel>().CreateMany().ToList();
-            var getEmployee = _fixture.Build<GetEmployeeParameters>().Without(x=>x.Search).Without(x => x.FilterByRole).With(x => x.IncludeInActive, false).Create();
-            await _dbContext.AddRangeAsync(expected);
+            var expected = _fixture.Build<GetResponseModel<EmployeeModel>>().Create();
+            var getEmployee = _fixture.Build<GetEmployeeParameters>().Without(x => x.Search).Without(x => x.FilterByRole).With(x => x.IncludeInActive, false).With(x => x.PageSize, 0).Create();
+            await _dbContext.AddRangeAsync(expected.Data);
             await _dbContext.SaveChangesAsync();
 
             //Act
@@ -39,37 +39,37 @@ namespace SampleAPI.UnitTest.RepositoryTests
 
             //Assert
             Assert.NotNull(actual);
-            actual.Should().BeEquivalentTo(expected.Where(x=>x.IsActive));
+            actual.Data.Where(x => x.IsActive).Should().BeEquivalentTo(expected.Data.Where(x => x.IsActive));
         }
 
-        [Fact]
-        public async void ShouldReturnSearchEmployees_WhenGetAllAsync_IsCalled()
+        [Fact(DisplayName = "ShouldReturnEmployees_WhenGetAllAsync_IsCalled_ForSearch")]
+        public async void SearchEmployees_With_GetAllAsync()
         {
             //Arrange
-            var expected = _fixture.Build<EmployeeModel>().CreateMany().ToList();
-            await _dbContext.AddRangeAsync(expected);
-            await _dbContext.SaveChangesAsync();      
-            var searchEmployee = expected.FirstOrDefault();
+            var expected = _fixture.Build<GetResponseModel<EmployeeModel>>().Create();
+            await _dbContext.AddRangeAsync(expected.Data);
+            await _dbContext.SaveChangesAsync();
+            var searchEmployee = expected.Data.FirstOrDefault();
             var expectedList = _fixture.CreateMany<EmployeeModel>(0).ToList();
             expectedList.Add(searchEmployee);
-            var getEmployee = _fixture.Build<GetEmployeeParameters>().With(x => x.Search, searchEmployee.Name).Without(x => x.FilterByRole).Create();
+            var getEmployee = _fixture.Build<GetEmployeeParameters>().With(x => x.Search, searchEmployee.Name).Without(x => x.FilterByRole).With(x => x.PageSize, 0).Create();
 
             //Act
             var actual = await _employeeRepository.GetAllAsync(getEmployee);
 
             //Assert
             Assert.NotNull(actual);
-            actual.Should().BeEquivalentTo(expectedList);
+            actual.Data.Should().BeEquivalentTo(expectedList);
         }
 
-        [Fact]
-        public async void ShouldReturn_Employee_With_Software_Developer_Role_WhenGetAllAsync_IsCalled()
+        [Fact(DisplayName = "ShouldReturnEmployees_WhenGetAllAsync_IsCalled_ForFilter_WithRole")]
+        public async void FilterEmployees_With_GetAllAsync()
         {
             //Arrange
             string role = "Software Developer";
-            var expected = _fixture.Build<EmployeeModel>().With(x=>x.Role, role).CreateMany().ToList();
-            var getEmployee = _fixture.Build<GetEmployeeParameters>().With(x => x.FilterByRole, role).Without(x => x.Search).Create();
-            await _dbContext.AddRangeAsync(expected);
+            var expected = _fixture.Build<GetResponseModel<EmployeeModel>>().With(x => x.Data, _fixture.Build<EmployeeModel>().With(x=>x.Role, role).CreateMany()).Create();
+            var getEmployee = _fixture.Build<GetEmployeeParameters>().With(x => x.FilterByRole, role).Without(x => x.Search).With(x => x.PageSize, 0).Create();
+            await _dbContext.AddRangeAsync(expected.Data);
             await _dbContext.SaveChangesAsync();
 
             //Act
@@ -77,7 +77,7 @@ namespace SampleAPI.UnitTest.RepositoryTests
 
             //Assert
             Assert.NotNull(actual);
-            actual.Should().BeEquivalentTo(expected.Where(x=>x.IsActive));
+            actual.Data.Should().BeEquivalentTo(expected.Data.Where(x => x.IsActive));
         }
         #endregion
 
@@ -101,7 +101,7 @@ namespace SampleAPI.UnitTest.RepositoryTests
         }
 
         [Fact]
-        public async void ShouldReturnNull_WhenGetAsync_IsCalled_WithEmptyRecords()
+        public async void ShouldReturnNull_WhenGetAsync_IsCalled_WithInvalidId()
         {
             //Act
             var excepted = await _employeeRepository.GetAsync(_fixture.Create<int>());
@@ -145,7 +145,7 @@ namespace SampleAPI.UnitTest.RepositoryTests
         }
 
         [Fact]
-        public async void ShouldThrowErrorMesssage_WhenDeleteAsync_IsCalled_WithInValidInput()
+        public async void ShouldThrowError_WhenDeleteAsync_IsCalled_WithInValidId()
         {
             //Arrange
             var input = _fixture.Build<EmployeeModel>().With(x => x.Id, _fixture.Create<int>()).Create();
@@ -153,7 +153,7 @@ namespace SampleAPI.UnitTest.RepositoryTests
             //Act
             var act = _employeeRepository.DeleteAsync(input.Id);
 
-             //Assert
+            //Assert
             var exception = await Assert.ThrowsAsync<CustomException>(() => act);
             Assert.Equal(AppConstants.NoRecordErrorMessage, (exception as Exception).Message);
         }

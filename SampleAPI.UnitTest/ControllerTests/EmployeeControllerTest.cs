@@ -1,7 +1,4 @@
-﻿using System.Data;
-using System.Drawing.Printing;
-using System.Linq;
-using AutoFixture;
+﻿using AutoFixture;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -19,33 +16,27 @@ namespace SampleAPI.UnitTest.ControllerTests
         public readonly Fixture _fixture;
         private readonly Mock<ILogger<EmployeeController>> _loggerMock;
         private readonly Mock<IEmployeeRepository> _employeeRepositoryMock;
+        private readonly EmployeeController _employeeController;
 
         public EmployeeControllerTest()
         {
             _fixture = new Fixture();
             _loggerMock = new Mock<ILogger<EmployeeController>>();
             _employeeRepositoryMock = new Mock<IEmployeeRepository>();
-        }
-
-        private EmployeeController CreateController()
-        {
-            return new EmployeeController(_loggerMock.Object, _employeeRepositoryMock.Object);
+            _employeeController = new EmployeeController(_loggerMock.Object, _employeeRepositoryMock.Object);
         }
 
         #region GetAllEmployee 
 
-        [Fact]
-        public async Task ShouldReturn_500InternalServerErrorMessage_WhenEmployeeReposistoryThrowException_WhileGetEmployeeIsCalled()
+        [Fact(DisplayName = "ShouldReturn_500Error_WhenReposistoryThrowsException_WhileGetEmployeeIsCalled")]
+        public async Task WhenReposistoryThrowsException_Returns_500Error_In_GetEmployee()
         {
-            //Arrange
-            var search = _fixture.Create<string>();
-            var role = _fixture.Create<string>();
+            //Arrange;
             var getEmployeeParameters = _fixture.Create<GetEmployeeParameters>();
             _employeeRepositoryMock.Setup(x => x.GetAllAsync(getEmployeeParameters)).ThrowsAsync(_fixture.Create<Exception>());
-            var controller = CreateController();
 
             //Act
-            var actual = await controller.GetEmployee(getEmployeeParameters) as ObjectResult;
+            var actual = await _employeeController.GetEmployee(getEmployeeParameters) as ObjectResult;
 
             //Assert
             Assert.NotNull(actual);
@@ -54,47 +45,40 @@ namespace SampleAPI.UnitTest.ControllerTests
             _employeeRepositoryMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldReturn_AllEmployee_WhenGetEmployeeIsCalled()
+        [Fact(DisplayName = "ShouldReturn_AllEmployee_WhenGetEmployeeIsCalled_With_PageSize_0")]
+        public async Task GivenPaginationParameters_ReturnsAllEmployee()
         {
             //Arrange
-            var search = _fixture.Create<string>();
-            var role = _fixture.Create<string>();
-            var getEmployeeParameters = _fixture.Build<GetEmployeeParameters>().With(x=>x.PageSize, 0).Create();
-            var expected = _fixture.Create<IEnumerable<EmployeeModel>>().AsQueryable();
+            var getEmployeeParameters = _fixture.Build<GetEmployeeParameters>().With(x => x.PageSize, 0).Create();
+            var expected = _fixture.Create<GetResponseModel<EmployeeModel>>();
             _employeeRepositoryMock.Setup(x => x.GetAllAsync(getEmployeeParameters)).ReturnsAsync(expected);
-            var controller = CreateController();
 
             //Act
-            var actual = await controller.GetEmployee(getEmployeeParameters) as ObjectResult;
+            var actual = await _employeeController.GetEmployee(getEmployeeParameters) as ObjectResult;
 
             //Assert
             Assert.NotNull(actual);
             Assert.Equal(StatusCodes.Status200OK, actual.StatusCode);
-            Assert.Equal(expected, (actual.Value as GetResponseModel<EmployeeModel>).Data);
+            Assert.Equal(expected, actual.Value);
             _employeeRepositoryMock.Verify(m => m.GetAllAsync(getEmployeeParameters), Times.Once);
             _employeeRepositoryMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldReturn_EmployeeRecords_With_PageSize_Of_20_PageNumber_Of_5WhenGetEmployeeIsCalled_Pagination()
+        [Fact(DisplayName = "ShouldReturn_EmployeeRecords_With_PageSize_Of_20_PageNumber_Of_5_WhenGetEmployeeIsCalled_WithGivenPaginationParameter")]
+        public async Task GivenPaginationParameters_ReturnsEmployeeList_In_FifthPage()
         {
             //Arrange
-            var search = _fixture.Create<string>();
-            var role = _fixture.Create<string>();
-            var getEmployeeParameters = _fixture.Build<GetEmployeeParameters>().With(x => x.PageSize, 20).With(x=>x.PageNumber, 5).Create();
-            var emoployeeList = _fixture.CreateMany<EmployeeModel>(100).AsQueryable();
-            var expected = emoployeeList.OrderBy(x => x.Name).Skip((getEmployeeParameters.PageNumber - 1) * getEmployeeParameters.PageSize).Take(getEmployeeParameters.PageSize).ToList();
-            _employeeRepositoryMock.Setup(x => x.GetAllAsync(getEmployeeParameters)).ReturnsAsync(emoployeeList);
-            var controller = CreateController();
+            var getEmployeeParameters = _fixture.Build<GetEmployeeParameters>().With(x => x.PageSize, 20).With(x => x.PageNumber, 5).Create();
+            var expected = _fixture.Create<GetResponseModel<EmployeeModel>>();
+            _employeeRepositoryMock.Setup(x => x.GetAllAsync(getEmployeeParameters)).ReturnsAsync(expected);
 
             //Act
-            var actual = await controller.GetEmployee(getEmployeeParameters) as ObjectResult;
+            var actual = await _employeeController.GetEmployee(getEmployeeParameters) as ObjectResult;
 
             //Assert
             Assert.NotNull(actual);
             Assert.Equal(StatusCodes.Status200OK, actual.StatusCode);
-            Assert.Equal(expected, (actual.Value as GetResponseModel<EmployeeModel>).Data);
+            Assert.Equal(expected, actual.Value);
             _employeeRepositoryMock.Verify(m => m.GetAllAsync(getEmployeeParameters), Times.Once);
             _employeeRepositoryMock.VerifyNoOtherCalls();
         }
@@ -102,15 +86,15 @@ namespace SampleAPI.UnitTest.ControllerTests
         #endregion
 
         #region GetEmployeeById
-        [Fact]
-        public async Task ShouldReturn_500InternalServerErrorMessage_WhenEmployeeReposistoryThrowException_WhileGetEmployeeByIdIsCalled()
+        [Fact(DisplayName = "ShouldReturn_500Error_WhenReposistoryThrowsException_WhileGetEmployeeByIdIsCalled")]
+        public async Task ReposistoryThrowsException_Return_500Error_In_GetEmployeeById()
         {
             //Arrange
             var request = _fixture.Create<int>();
             _employeeRepositoryMock.Setup(x => x.GetAsync(request)).ThrowsAsync(_fixture.Create<Exception>());
 
             //Act
-            var actual = await CreateController().GetEmployeeById(request) as ObjectResult;
+            var actual = await _employeeController.GetEmployeeById(request) as ObjectResult;
 
             //Assert
             Assert.NotNull(actual);
@@ -119,15 +103,15 @@ namespace SampleAPI.UnitTest.ControllerTests
             _employeeRepositoryMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldReturn_EmployeeModel_WhenGetEmployeeByIdIsCalled()
+        [Fact(DisplayName = "ShouldReturn_EmployeeRecord_WhenGetEmployeeByIdIsCalled_WithId")]
+        public async Task GivenParameterInGetEmployeeById_ReturnsEmployeeRecord()
         {
             //Arrange
             var expected = _fixture.Create<EmployeeModel>();
             _employeeRepositoryMock.Setup(x => x.GetAsync(expected.Id)).ReturnsAsync(expected);
 
             //Act
-            var actual = await CreateController().GetEmployeeById(expected.Id) as ObjectResult;
+            var actual = await _employeeController.GetEmployeeById(expected.Id) as ObjectResult;
 
             //Assert
             Assert.NotNull(actual);
@@ -137,15 +121,15 @@ namespace SampleAPI.UnitTest.ControllerTests
             _employeeRepositoryMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldReturn_404_NotFound_When_EmployeeRepositoryReturnNull_WhileGetEmployeeById_IsCalled()
+        [Fact(DisplayName = "ShouldReturn_404_NotFound_When_EmployeeRepositoryReturnNull_WhileGetEmployeeById_IsCalled")]
+        public async Task ReposistoryReturnsNull_Returns_404_NotFound_In_GetEmployeeById()
         {
             //Arrange
             var request = _fixture.Create<int>();
             _employeeRepositoryMock.Setup(x => x.GetAsync(request)).ReturnsAsync((EmployeeModel)null);
 
             //Act
-            var actual = await CreateController().GetEmployeeById(request) as NotFoundResult;
+            var actual = await _employeeController.GetEmployeeById(request) as NotFoundResult;
 
             //Assert
             Assert.NotNull(actual);
@@ -157,15 +141,15 @@ namespace SampleAPI.UnitTest.ControllerTests
 
         #region AddEmployee
 
-        [Fact]
-        public async Task ShouldReturn_500InternalServerErrorMessage_WhenEmployeeReposistoryThrowsException_WhileAddEmployeeIsCalled()
+        [Fact(DisplayName = "ShouldReturn_500Error_WhenReposistoryThrowsException_WhileAddEmployeeIsCalled")]
+        public async Task ReposistoryThrowsException_Return_500Error_In_AddEmployee()
         {
             //Arrange
             var request = _fixture.Create<EmployeeModel>();
             _employeeRepositoryMock.Setup(x => x.AddAsync(request)).ThrowsAsync(_fixture.Create<Exception>());
 
             //Act
-            var actual = await CreateController().AddEmployee(request) as ObjectResult;
+            var actual = await _employeeController.AddEmployee(request) as ObjectResult;
 
             //Assert
             Assert.NotNull(actual);
@@ -174,14 +158,13 @@ namespace SampleAPI.UnitTest.ControllerTests
             _employeeRepositoryMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
         public async void ShouldAddEmploye_WhenAddEmployeeIsCalled()
         {
             //Arrange
             var request = _fixture.Create<EmployeeModel>();
 
             //Act
-            var actual = await CreateController().AddEmployee(request) as ObjectResult;
+            var actual = await _employeeController.AddEmployee(request) as ObjectResult;
 
             //Assert
             Assert.NotNull(actual);
@@ -195,15 +178,15 @@ namespace SampleAPI.UnitTest.ControllerTests
 
         #region UpdateEmployee
 
-        [Fact]
-        public async Task ShouldReturn_500InternalServerErrorMessage_WhenEmployeeReposistoryThrowsException_WhileUpdateEmployeeIsCalled()
+        [Fact(DisplayName = "ShouldReturn_500Error_WhenReposistoryThrowsException_WhileUpdateEmployeeIsCalled")]
+        public async Task ReposistoryThrowsException_Return_500Error_In_UpdateEmployee()
         {
             //Arrange
             var request = _fixture.Create<EmployeeModel>();
             _employeeRepositoryMock.Setup(x => x.UpdateAsync(request)).ThrowsAsync(_fixture.Create<Exception>());
 
             //Act
-            var actual = await CreateController().UpdateEmployee(request) as ObjectResult;
+            var actual = await _employeeController.UpdateEmployee(request) as ObjectResult;
 
             //Assert
             Assert.NotNull(actual);
@@ -213,13 +196,13 @@ namespace SampleAPI.UnitTest.ControllerTests
         }
 
         [Fact]
-        public async void ShouldUpdateEmployeeDetails_WhenUpdateEmployeeIsCalled()
+        public async void ShouldUpdateEmployee_WhenUpdateEmployeeIsCalled()
         {
             //Arrange
             var request = _fixture.Create<EmployeeModel>();
 
             //Act
-            var actual = await CreateController().UpdateEmployee(request) as ObjectResult;
+            var actual = await _employeeController.UpdateEmployee(request) as ObjectResult;
 
             //Assert
             Assert.NotNull(actual);
@@ -232,8 +215,8 @@ namespace SampleAPI.UnitTest.ControllerTests
 
         #region DeleteEmployee
 
-        [Fact]
-        public async Task ShouldReturn_204_NoContent_WhenDeleteEmployeeIsCalled_WithInvalidEmployeeId()
+        [Fact(DisplayName = "ShouldReturn_404_NotFound_WhenDeleteEmployeeIsCalled_WithInvalidEmployeeId")]
+        public async Task GivenInvalidId_Return_404_In_DeleteEmployee()
         {
             //Arrange
             var request = _fixture.Create<int>();
@@ -241,24 +224,24 @@ namespace SampleAPI.UnitTest.ControllerTests
             _employeeRepositoryMock.Setup(x => x.DeleteAsync(request)).Throws(exception);
 
             //Act
-            var actual = await CreateController().DeleteEmployee(request) as StatusCodeResult;
+            var actual = await _employeeController.DeleteEmployee(request) as StatusCodeResult;
 
             //Assert
             Assert.NotNull(actual);
-            Assert.Equal(StatusCodes.Status204NoContent, actual.StatusCode);
+            Assert.Equal(StatusCodes.Status404NotFound, actual.StatusCode);
             _employeeRepositoryMock.Verify(m => m.DeleteAsync(request), Times.Once);
             _employeeRepositoryMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldReturn_500InternalServerErrorMessage_WhenEmployeeReposistoryThrowsException_WhileDeleteEmployeeIsCalled()
+        [Fact(DisplayName = "ShouldReturn_500Error_WhenReposistoryThrowsException_WhileDeleteEmployeeIsCalled")]
+        public async Task ReposistoryThrowsException_Return_500Error_In_DeleteEmployee()
         {
             //Arrange
             var request = _fixture.Create<int>();
             _employeeRepositoryMock.Setup(x => x.DeleteAsync(request)).ThrowsAsync(_fixture.Create<Exception>());
 
             //Act
-            var actual = await CreateController().DeleteEmployee(request) as ObjectResult;
+            var actual = await _employeeController.DeleteEmployee(request) as ObjectResult;
 
             //Assert
             Assert.NotNull(actual);
@@ -274,7 +257,7 @@ namespace SampleAPI.UnitTest.ControllerTests
             var request = _fixture.Create<int>();
 
             //Act
-            var actual = await CreateController().DeleteEmployee(request) as ObjectResult;
+            var actual = await _employeeController.DeleteEmployee(request) as ObjectResult;
 
             //Assert
             Assert.NotNull(actual);

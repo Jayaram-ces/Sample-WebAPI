@@ -30,33 +30,7 @@ namespace SampleAPI.Controllers
         {
             try
             {
-                var response = new GetResponseModel<EmployeeModel>();
-                IEnumerable<EmployeeModel> result = new List<EmployeeModel>();
-                var getEmployees = (await _repository.GetAllAsync(pagingparametermodel)).ToList();
-
-                int TotalPages = 1;
-                int totalRecordCount = getEmployees.Count;
-                int CurrentPage = pagingparametermodel.PageNumber;
-                int PageSize = pagingparametermodel.PageSize;
-
-                if (PageSize > 0)
-                {
-                    TotalPages = (int)Math.Ceiling(totalRecordCount / (double)PageSize);
-                    result = getEmployees.OrderBy(x => x.Name).Skip((CurrentPage - 1) * PageSize).Take(PageSize);
-                }
-                else
-                {
-                    result = getEmployees;
-                }
-
-                response.TotalRecordCount = totalRecordCount;
-                response.TotalPages = TotalPages;
-                response.PageSize = PageSize;
-                response.CurrentPage = CurrentPage;
-                response.HasPreviousPage = CurrentPage > 1;
-                response.HasNextPage = CurrentPage < TotalPages;
-                response.Data = result;
-                return Ok(response);
+                return Ok(await _repository.GetAllAsync(pagingparametermodel));
             }
             catch (Exception ex)
             {
@@ -148,7 +122,7 @@ namespace SampleAPI.Controllers
             catch (CustomException ex)
             {
                 _logger.LogInformation(ex, ex.Message);
-                return StatusCode(StatusCodes.Status204NoContent);
+                return StatusCode(StatusCodes.Status404NotFound);
             }
             catch (Exception ex)
             {

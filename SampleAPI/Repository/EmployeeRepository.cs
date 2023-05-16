@@ -52,14 +52,40 @@ namespace SampleAPI.Repository
         /// Get the employee list.
         /// </summary>
         /// <returns>Employee list.</returns>
-        public async Task<IQueryable<EmployeeModel>> GetAllAsync(GetEmployeeParameters getEmployeeParameters)
+        public Task<GetResponseModel<EmployeeModel>> GetAllAsync(GetEmployeeParameters getEmployeeParameters)
         {
-            var employeeList = _dbContext.Employees.Where(x =>
+            var employeeList =  _dbContext.Employees.Where(x =>
                 (string.IsNullOrWhiteSpace(getEmployeeParameters.Search) || x.Name.Contains(getEmployeeParameters.Search) || x.Role.Contains(getEmployeeParameters.Search))
                 && (string.IsNullOrWhiteSpace(getEmployeeParameters.FilterByRole) || x.Role.Equals(getEmployeeParameters.FilterByRole))
-                && (getEmployeeParameters.IncludeInActive || x.IsActive));
+                && (getEmployeeParameters.IncludeInActive || x.IsActive)).ToList();
 
-            return employeeList;
+            var response = new GetResponseModel<EmployeeModel>();
+            IEnumerable<EmployeeModel> result;
+
+            int TotalPages = 1;
+            int totalRecordCount = employeeList.Count;
+            int CurrentPage = getEmployeeParameters.PageNumber;
+            int PageSize = getEmployeeParameters.PageSize;
+
+            if (PageSize > 0)
+            {
+                TotalPages = (int)Math.Ceiling(totalRecordCount / (double)PageSize);
+                result = employeeList.OrderBy(x => x.Name).Skip((CurrentPage - 1) * PageSize).Take(PageSize);
+            }
+            else
+            {
+                result = employeeList;
+            }
+
+            response.TotalRecordCount = totalRecordCount;
+            response.TotalPages = TotalPages;
+            response.PageSize = PageSize;
+            response.CurrentPage = CurrentPage;
+            response.HasPreviousPage = CurrentPage > 1;
+            response.HasNextPage = CurrentPage < TotalPages;
+            response.Data = result;
+
+            return Task.FromResult(response);
         }
 
         /// <summary>
